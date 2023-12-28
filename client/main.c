@@ -12,7 +12,7 @@
 #include <unistd.h>
 
 #define MAX 80
-#define PORT 8080
+#define PORT 5059
 #define FALSE 0
 #define TRUE 1
 

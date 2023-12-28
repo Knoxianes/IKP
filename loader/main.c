@@ -1,76 +1,23 @@
 
-#include <asm-generic/ioctls.h>
-#include <bits/types/struct_timeval.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/ioctl.h>
-#include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define MAX 80
-#define PORT 8080
+#define BUFFER 80
+#define PORT 5059
 #define BACKLOG 32
-#define MAXWAIT 5
-#define FALSE 0
-#define TRUE 1
+#define QUEUE_MAX 32
 
-void *ServeClient(void *args) {
-  int sd = *(int*)args;
-  printf("  Descriptor %d is readable\n", sd);
-  int i, len, rc, on = 1;
-  char buffer[80];
-  do {
-    /**********************************************/
-    /* Receive data on this connection until the  */
-    /* recv fails with EWOULDBLOCK.  If any other */
-    /* failure occurs, we will close the          */
-    /* connection.                                */
-    /**********************************************/
-    rc = recv(sd, buffer, sizeof(buffer), 0);
-    if (rc < 0) {
-      if (errno != EWOULDBLOCK) {
-        perror("  recv() failed");
-      }
-      break;
-    }
-
-    /**********************************************/
-    /* Check to see if the connection has been    */
-    /* closed by the client                       */
-    /**********************************************/
-    if (rc == 0) {
-      printf("  Connection closed\n");
-      break;
-    }
-
-    /**********************************************/
-    /* Data was received                          */
-    /**********************************************/
-    len = rc;
-    printf("  %d bytes received\n", len);
-
-    /**********************************************/
-    /* Echo the data back to the client           */
-    /**********************************************/
-    rc = send(sd, buffer, len, 0);
-    if (rc < 0) {
-      perror("  send() failed");
-      break;
-    }
-
-  } while (TRUE);
-}
 
 int main(int argc, char *argv[]) {
   int i, len, rc, on = 1;
-  int listen_sd, new_sd;
-  int desc_ready, end_server = FALSE;
-  char buffer[80];
+  int listen_sd, client_socket_sd;
+  char buffer[BUFFER];
   struct sockaddr_in6 addr;
 
   /*************************************************************/
@@ -117,16 +64,14 @@ int main(int argc, char *argv[]) {
     exit(-1);
   }
 
-  do {
-    printf("Waiting for accept\n");
-    new_sd = accept(listen_sd, NULL, NULL);
-    if (new_sd < 0) {
-      if (errno != EWOULDBLOCK) {
-        perror("  accept() failed");
-        end_server = TRUE;
-      }
+  printf("Waiting for accept\n");
+  client_socket_sd = accept(listen_sd, NULL, NULL);
+  if (client_socket_sd < 0) {
+    if (errno != EWOULDBLOCK) {
+      perror("  accept() failed");
     }
-    pthread_t thread;
-    pthread_create(&thread, NULL, ServeClient, (void*)(&new_sd));
-  } while (end_server == FALSE);
+  }
+  printf("Accepted\n");
+
+
 }
