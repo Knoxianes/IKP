@@ -9,7 +9,7 @@ struct queue{
     struct queue_node* tail;
 };
 struct queue_node{
-    char* payload;
+    char payload[BUFFER_SIZE];
     struct queue_node* next;
 };
 

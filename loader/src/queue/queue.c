@@ -1,6 +1,7 @@
 #include "../../include/queue.h"
 #include "stdio.h"
 #include "stdlib.h"
+#include "string.h"
 
 struct queue *create_queue() {
   struct queue *queue = (struct queue *)malloc(sizeof(struct queue));
@@ -14,7 +15,7 @@ int enqueue(struct queue *queue, char *payload) {
     return 1;
   }
   struct queue_node* new_node = (struct queue_node*)malloc(sizeof(struct queue_node));
-  new_node->payload = payload;
+  strcpy(new_node->payload,payload);
   new_node->next = NULL;
   if (queue->tail != NULL) {
     queue->tail->next = new_node;
@@ -30,7 +31,8 @@ char *dequeue(struct queue *queue) {
   if (queue->head == NULL || queue->tail == NULL || queue->size == 0) {
     return NULL;
   }
-  char *ret = queue->head->payload;
+  char *ret;
+  strcpy(ret,queue->head->payload);
   if (queue->size == 1) {
     free(queue->head);
     queue->head = NULL;

@@ -13,8 +13,6 @@
 
 #define MAX 80
 #define PORT 5059
-#define FALSE 0
-#define TRUE 1
 
 int main() {
   int socketClient, conn;
@@ -44,23 +42,36 @@ int main() {
   } else {
     printf("Connected to the server...\n");
   }
-
-  while (TRUE) {
+  strcpy(buffer,"ok");
+  while (1) {
+    if(strncmp(buffer,"ok",2) != 0){
+      if(strncmp(buffer,"Full",4) != 0){
+        printf("Server error");
+        break;
+      }
+      bzero(buffer,sizeof(buffer));
+      read(socketClient,buffer,sizeof(buffer));
+      if(strncmp(buffer,"Continue",8) != 0){
+        printf("Server error"); 
+        break;
+      }
+      bzero(buffer,sizeof(buffer));
+    }
     bzero(buffer, sizeof(buffer));
-    printf("Enter the string : ");
+    printf("Enter the payload : ");
     n = 0;
     while ((buffer[n++] = getchar()) != '\n')
       ;
     write(socketClient, buffer, sizeof(buffer));
     bzero(buffer, sizeof(buffer));
     read(socketClient, buffer, sizeof(buffer));
-    printf("From Server : %s", buffer);
+    printf("From Server : %s\n", buffer);
     if ((strncmp(buffer, "exit", 4)) == 0) {
       printf("Client Exit...\n");
       break;
     }
   }
   close(socketClient);
-
+  
   return 0;
 }
