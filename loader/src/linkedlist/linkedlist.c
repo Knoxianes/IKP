@@ -92,22 +92,29 @@ int delete_node(struct linkedlist *ll) {
     return -1;
   }
   int ret = to_delete->sd;
-  if (to_delete->prev == NULL) {
-    ll->head = to_delete->next;
-    ll->head->prev = NULL;
-    to_delete->next = NULL;
-    free(to_delete);
-  } else if (to_delete->next == NULL) {
-    ll->tail = to_delete->prev;
-    ll->tail->next = NULL;
-    to_delete->prev = NULL;
+  if (ll->size == 1) {
+    ll->head = NULL;
+    ll->tail = NULL;
     free(to_delete);
   } else {
-    to_delete->next->prev = to_delete->prev;
-    to_delete->prev->next = to_delete->next;
-    to_delete->prev = to_delete->next = NULL;
-    free(to_delete);
+    if (to_delete->prev == NULL) {
+      ll->head = to_delete->next;
+      ll->head->prev = NULL;
+      to_delete->next = NULL;
+      free(to_delete);
+    } else if (to_delete->next == NULL) {
+      ll->tail = to_delete->prev;
+      ll->tail->next = NULL;
+      to_delete->prev = NULL;
+      free(to_delete);
+    } else {
+      to_delete->next->prev = to_delete->prev;
+      to_delete->prev->next = to_delete->next;
+      to_delete->prev = to_delete->next = NULL;
+      free(to_delete);
+    }
   }
+  ll->size--;
   return ret;
 }
 void free_list(struct linkedlist *ll) {
@@ -116,9 +123,9 @@ void free_list(struct linkedlist *ll) {
     return;
   }
 
-  struct list_node* current = ll->head;
-  for(;current != NULL;){
-    struct list_node* tmp = current;
+  struct list_node *current = ll->head;
+  for (; current != NULL;) {
+    struct list_node *tmp = current;
     current = current->next;
     free(tmp);
   }
@@ -126,7 +133,8 @@ void free_list(struct linkedlist *ll) {
 }
 void print_list(struct linkedlist *ll) {
   struct list_node *current;
-  for(current = ll->head; current != NULL; current = current->next){
-    printf("\nProcess stream descriptor: %d\n Process in use: %d\n",current->sd,current->in_use);
+  for (current = ll->head; current != NULL; current = current->next) {
+    printf("\nProcess stream descriptor: %d\nProcess in use: %d\n", current->sd,
+           current->in_use);
   }
 }
