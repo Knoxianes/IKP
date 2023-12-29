@@ -9,10 +9,12 @@ struct queue *create_queue() {
   queue->max_size = QUEUE_SIZE;
   return queue;
 }
-int enqueue(struct queue *queue, struct queue_node *new_node) {
+int enqueue(struct queue *queue, char *payload) {
   if (queue->max_size == queue->size) {
     return 1;
   }
+  struct queue_node* new_node = (struct queue_node*)malloc(sizeof(struct queue_node));
+  new_node->payload = payload;
   new_node->next = NULL;
   if (queue->tail != NULL) {
     queue->tail->next = new_node;
@@ -59,6 +61,6 @@ void print_queue(struct queue *queue) {
   struct queue_node *current = queue->head;
   int i = 1;
   for (; current != NULL; current = current->next, i++) {
-    printf("%d. Payload: %s", i, current->payload);
+    printf("%d. Payload: %s\n", i, current->payload);
   }
 }

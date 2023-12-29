@@ -9,7 +9,7 @@ struct queue{
     struct queue_node* tail;
 };
 struct queue_node{
-    char payload[BUFFER_SIZE];
+    char* payload;
     struct queue_node* next;
 };
 
@@ -18,7 +18,7 @@ typedef struct queue_node QueueNode;
 
 
 struct queue* create_queue();
-int enqueue(struct queue*,struct queue_node*);
+int enqueue(struct queue*,char*);
 char* dequeue(struct queue*);
 void free_queue(struct queue*);
 void print_queue(struct queue*);
