@@ -18,8 +18,8 @@ typedef struct queue_node QueueNode;
 
 
 struct queue* create_queue();
-void enqueue(struct queue*,struct queue_node*);
-struct queue_node* dequeue(struct queue*);
+int enqueue(struct queue*,struct queue_node*);
+char* dequeue(struct queue*);
 void free_queue(struct queue*);
 void print_queue(struct queue*);
 

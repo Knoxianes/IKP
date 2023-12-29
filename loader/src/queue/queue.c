@@ -1,8 +1,64 @@
 #include "../../include/queue.h"
+#include "stdio.h"
+#include "stdlib.h"
 
+struct queue *create_queue() {
+  struct queue *queue = (struct queue *)malloc(sizeof(struct queue));
+  queue->head = queue->tail = NULL;
+  queue->size = 0;
+  queue->max_size = QUEUE_SIZE;
+  return queue;
+}
+int enqueue(struct queue *queue, struct queue_node *new_node) {
+  if (queue->max_size == queue->size) {
+    return 1;
+  }
+  new_node->next = NULL;
+  if (queue->tail != NULL) {
+    queue->tail->next = new_node;
+  }
+  queue->tail = new_node;
+  if (queue->head == NULL) {
+    queue->head = new_node;
+  }
+  queue->size++;
+  return 0;
+}
+char *dequeue(struct queue *queue) {
+  if (queue->head == NULL || queue->tail == NULL || queue->size == 0) {
+    return NULL;
+  }
+  char *ret = queue->head->payload;
+  if (queue->size == 1) {
+    free(queue->head);
+    queue->head = NULL;
+    queue->tail = NULL;
+  } else {
+    struct queue_node *tmp = queue->head;
+    queue->head = queue->head->next;
+    free(tmp);
+  }
+  queue->size--;
 
-struct queue* create_queue();
-void enqueue(struct queue* queue,struct queue_node* new_node);
-struct queue_node* dequeue(struct queue* queue);
-void free_queue(struct queue* queue);
-void print_queue(struct queue* queue);
+  return ret;
+}
+void free_queue(struct queue *queue) {
+  if (queue->head == NULL || queue->tail == NULL || queue->size == 0) {
+    free(queue);
+    return;
+  }
+  struct queue_node *current = queue->head;
+  for (; current != NULL;) {
+    struct queue_node *tmp = current;
+    current = current->next;
+    free(tmp);
+  }
+  free(queue);
+}
+void print_queue(struct queue *queue) {
+  struct queue_node *current = queue->head;
+  int i = 1;
+  for (; current != NULL; current = current->next, i++) {
+    printf("%d. Payload: %s", i, current->payload);
+  }
+}

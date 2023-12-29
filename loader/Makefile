@@ -20,9 +20,9 @@ testLinkedList:
 	@./test_linked_list
 testQueue:
 	@$(COMPILER) -c src/queue/*.c  -o bin/queue.o 
-	@echo "Built linkedlist.o"
+	@echo "Built queue.o"
 	@$(COMPILER) -c tests/test_queue.c -o bin/test_queue.o
 	@$(COMPILER) bin/queue.o bin/test_queue.o -o test_queue
-	@echo "Finished building test_linked_list"
-	@echo "Running test_linked_list"
+	@echo "Finished building test_queue"
+	@echo "Running test_queue"
 	@./test_queue
