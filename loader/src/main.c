@@ -83,6 +83,7 @@ int main(int argc, char *argv[]) {
   }
   printf("Accepted\n");
 
+
   Queue *payloads = create_queue();
   LinkedList *list_of_workers = create_list();
   ARGS *args = (ARGS *)malloc(sizeof(ARGS));
@@ -130,14 +131,31 @@ void *SendPayLoads(void *args) {
   ARGS *tmp = args;
   Queue *payloads = tmp->payloads;
   LinkedList *list_of_workers = tmp->list_of_workers;
+  char buffer[BUFFER_SIZE];
   printf("Size of queue: %d, Size of Linkedlist: %d\n",payloads->max_size,list_of_workers->size);
   while(1){
+    bzero(buffer,sizeof(buffer));
     if(payloads->size == 0){
       continue;
     }
+    pthread_mutex_lock(&list_of_workers_mutex);
+    ListNode *free_process = find_first_free(list_of_workers); 
+    pthread_mutex_unlock(&list_of_workers_mutex);
+    if (free_process == NULL){
+      continue;
+    }
+
     pthread_mutex_lock(&payloads_mutex);
-    printf("%s\n",dequeue(payloads));
+    strcpy(buffer,dequeue(payloads));
     pthread_mutex_unlock(&payloads_mutex);
+
+    int rc = send(free_process->sd,buffer,sizeof(buffer),0);
+    if (rc < 0){
+      printf("Error while sending data to process"); // Ovde postoji bug ako se desi send failed gubimo payload iz queue
+      continue;
+    }
+
+    free_process->in_use = 1;
     sleep(3);
   }
   return NULL;
