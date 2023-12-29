@@ -7,18 +7,18 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
-#define BUFFER 80
-#define PORT 5059
-#define BACKLOG 32
-#define QUEUE_MAX 32
-
+#include "../include/consts.h"
+#include "../include/linkedlist.h"
+#include "../include/queue.h"
 
 int main(int argc, char *argv[]) {
   int i, len, rc, on = 1;
   int listen_sd, client_socket_sd;
-  char buffer[BUFFER];
+  char buffer[BUFFER_SIZE];
   struct sockaddr_in6 addr;
+
+  Queue* payloads = create_queue();
+  LinkedList* list_of_workers = create_list();
 
   /*************************************************************/
   /* Create an AF_INET6 stream socket to receive incoming      */
