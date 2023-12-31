@@ -24,8 +24,7 @@ typedef struct payloadargs {
 
 typedef struct process_creatinon_args {
   LinkedList *list_of_workers;
-  struct pollfd *fds;
-  int *nfds;
+  Queue *payloads;
 } CREATIONARGS;
 
 typedef struct processfinishedargs {
@@ -37,7 +36,7 @@ typedef struct processfinishedargs {
 void *SendPayLoads(void *);
 void *ListenForProcessFinish(void *);
 void *ProcessCreation(void *);
-void Work();
+void CreateProcess();
 
 int main(int argc, char *argv[]) {
   char buffer[BUFFER_SIZE];
@@ -65,12 +64,18 @@ int main(int argc, char *argv[]) {
   finishedargs->nfds = &nfds;
   finishedargs->process_socket_sd = process_socket_sd;
 
+  CREATIONARGS *creationargs = (CREATIONARGS *)malloc(sizeof(CREATIONARGS));
+  creationargs->list_of_workers = list_of_workers;
+  creationargs->payloads = payloads;
+
   pthread_t thread_payloads, thread_process_create, thread_process_finished;
   pthread_create(&thread_payloads, NULL, SendPayLoads, payloadargs);
   pthread_create(&thread_process_finished, NULL, ListenForProcessFinish,
                  finishedargs);
+  pthread_create(&thread_process_create, NULL, ProcessCreation, creationargs);
 
   int full = 0;
+  CreateProcess();
   while (!end_program) {
     if (payloads->size == payloads->max_size) {
       if (full == 0) {
@@ -104,6 +109,7 @@ int main(int argc, char *argv[]) {
   free_list(list_of_workers);
   free(payloadargs);
   free(finishedargs);
+  free(creationargs);
   close(client_socket_sd);
   close(process_socket_sd);
   return 0;
@@ -115,7 +121,6 @@ void *SendPayLoads(void *args) {
   LinkedList *list_of_workers = tmp->list_of_workers;
   char buffer[BUFFER_SIZE];
   while (!end_program) {
-    bzero(buffer, sizeof(buffer));
     if (payloads->size == 0) {
       continue;
     }
@@ -125,17 +130,17 @@ void *SendPayLoads(void *args) {
     if (free_process == NULL) {
       continue;
     }
-
     pthread_mutex_lock(&payloads_mutex);
     strcpy(buffer, dequeue(payloads));
     pthread_mutex_unlock(&payloads_mutex);
-
+    printf("Dequeue buffer: %s\n",buffer);
     int rc = send(free_process->sd, buffer, sizeof(buffer), 0);
+    bzero(buffer,sizeof(buffer));
     if (rc < 0) {
-      printf("Error while sending data to process"); // Ovde postoji bug ako se
-                                                     // desi send failed gubimo
-                                                     // payload iz queue
-      continue;
+      print_list(list_of_workers);
+      printf("Error while sending data to process dequeue process found: %d\n",free_process->sd);
+      end_program = 1;
+      break;
     }
 
     free_process->in_use = 1;
@@ -153,7 +158,7 @@ void *ListenForProcessFinish(void *args) {
   int process_socket_sd = tmp->process_socket_sd;
   char buffer[BUFFER_SIZE];
   int close_conn, compress_array = 0;
-  do{
+  do {
 
     rc = poll(fds, *nfds, -1);
     if (rc < 0) {
@@ -185,15 +190,12 @@ void *ListenForProcessFinish(void *args) {
           }
 
           printf("New connection - %d\n", new_sd);
+          pthread_mutex_lock(&list_of_workers_mutex);
+          insert_at_end(list_of_workers, new_sd);
+          pthread_mutex_unlock(&list_of_workers_mutex);
           fds[*nfds].fd = new_sd;
           fds[*nfds].events = POLLIN;
           (*nfds)++;
-          ListNode *new_worker = (ListNode *)malloc(sizeof(ListNode));
-          new_worker->sd = new_sd;
-          new_worker->in_use = 0;
-          pthread_mutex_lock(&list_of_workers_mutex);
-          insert_at_end(list_of_workers, new_worker);
-          pthread_mutex_unlock(&list_of_workers_mutex);
 
         } while (new_sd != -1);
       } else {
@@ -208,47 +210,95 @@ void *ListenForProcessFinish(void *args) {
         } else if (rc == 0) {
           close_conn = 1;
         } else {
-            if(strncmp(buffer,"finished",8) != 0){
+          if (strncmp(buffer, "finished", 8) != 0) {
             printf(" There is error with buffer of some process\n");
             end_program = 1;
             break;
           }
           pthread_mutex_lock(&list_of_workers_mutex);
-          ListNode* worker = get_node(list_of_workers,fds[i].fd);
+          ListNode *worker = get_node(list_of_workers, fds[i].fd);
           pthread_mutex_unlock(&list_of_workers_mutex);
           worker->in_use = 0;
+          bzero(buffer, sizeof(buffer));
         }
 
-        if(close_conn){
+        if (close_conn) {
           close(fds[i].fd);
           pthread_mutex_lock(&list_of_workers_mutex);
-          delete_specific_node(list_of_workers,fds[i].fd);
+          delete_specific_node(list_of_workers, fds[i].fd);
           pthread_mutex_unlock(&list_of_workers_mutex);
           fds[i].fd = -1;
-          compress_array =  1;
+          compress_array = 1;
         }
       }
     }
-    if(compress_array){
+    if (compress_array) {
       compress_array = 0;
-      for(int i = 0; i < *nfds; i++){
-        if(fds[i].fd == -1){
-          for(int j = i; j< *nfds; j++){
-            fds[j].fd = fds[j+1].fd;
+      for (int i = 0; i < *nfds; i++) {
+        if (fds[i].fd == -1) {
+          for (int j = i; j < *nfds; j++) {
+            fds[j].fd = fds[j + 1].fd;
           }
           i--;
           (*nfds)--;
         }
       }
-    } 
-  }while(!end_program);
+    }
+  } while (!end_program);
 
-  for(int i=0; i < *nfds;i++){
-    if(fds[i].fd>0){
+  for (int i = 0; i < *nfds; i++) {
+    if (fds[i].fd > 0) {
       close(fds[i].fd);
     }
-  } 
+  }
   return NULL;
 }
-void *ProcessCreation(void *args) { return NULL; }
-void Work();
+void *ProcessCreation(void *args) {
+  CREATIONARGS *tmp = args;
+  Queue *payloads = tmp->payloads;
+  LinkedList *list_of_workers = tmp->list_of_workers;
+  char buffer[BUFFER_SIZE];
+  while (!end_program) {
+    float load = (float)payloads->size / (float)payloads->max_size;
+    if (load <= 0.3 && list_of_workers->size > 1) {
+      pthread_mutex_lock(&list_of_workers_mutex);
+      int sd = delete_node(list_of_workers);
+      pthread_mutex_unlock(&list_of_workers_mutex);
+      if (sd == -1) {
+        printf("There is no free processes to be deleted");
+        continue;
+      }
+      bzero(buffer,sizeof(buffer));
+      strcpy(buffer,"end");
+      int rc = send(sd, buffer,sizeof(buffer),
+                    0); // Ovde postoji bug u slucaju da je payload "end"
+      if (rc < 0) {
+        printf("Error while send in process deletion\n");
+        end_program = 1;
+        break;
+      }
+    } else if (load >= 0.7) {
+      CreateProcess();
+    }
+  }
+  return NULL;
+}
+void CreateProcess() {
+  if (fork() == 0) {
+    int rc;
+    char buffer[BUFFER_SIZE];
+    int conn = connect_process();
+    while (1) {
+      rc = recv(conn, buffer, sizeof(buffer), 0);
+      if (strncmp(buffer, "end", 3) == 0) {
+        printf("Process closing...\n");
+        break;
+      }
+      sleep(rand()%10+1);
+      bzero(buffer,sizeof(buffer));
+      strcpy(buffer,"finished"); 
+      rc = send(conn,buffer,sizeof(buffer),0);
+    }
+    close(conn);
+  }
+}

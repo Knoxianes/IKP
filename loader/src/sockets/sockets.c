@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 int create_client_socket(){
   int listen_sd, client_socket_sd;
@@ -137,4 +138,33 @@ int create_process_socket(){
     exit(-1);
   }
   return listen_sd;
+}
+
+int connect_process(){
+  int socketClient;
+  struct sockaddr_in6 serverAddress;
+
+  // Creating AF_INET socket
+  socketClient = socket(AF_INET6, SOCK_STREAM, 0);
+  if (socketClient == -1) {
+    printf("Socket creating failed...\n");
+    exit(1);
+  } else {
+    printf("Socket for process created...\n");
+  }
+
+  // Adding serverAddress data for connetion
+  serverAddress.sin6_family = AF_INET6;
+  inet_pton(AF_INET6, "::1", &serverAddress.sin6_addr);
+  serverAddress.sin6_port = htons(PORT+1);
+
+  if (connect(socketClient, (struct sockaddr *)&serverAddress,
+              sizeof(serverAddress)) != 0) {
+    printf("Connection with server failed...\n");
+    close(socketClient);
+    exit(2);
+  } else {
+    printf("Process connected to the server...\n");
+  }
+  return socketClient;
 }

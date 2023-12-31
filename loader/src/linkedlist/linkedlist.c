@@ -9,7 +9,10 @@ struct linkedlist *create_list() {
   list->head = list->tail = NULL;
   return list;
 }
-void insert_at_beginning(struct linkedlist *ll, struct list_node *new_node) {
+void insert_at_beginning(struct linkedlist *ll, int sd) {
+  ListNode *new_node = (ListNode *)malloc(sizeof(ListNode));
+  new_node->sd = sd;
+  new_node->in_use = 0;
   if (ll->head != NULL) {
     new_node->next = ll->head;
     new_node->prev = NULL;
@@ -25,7 +28,11 @@ void insert_at_beginning(struct linkedlist *ll, struct list_node *new_node) {
   new_node->prev = NULL;
   ll->size++;
 }
-void insert_at_end(struct linkedlist *ll, struct list_node *new_node) {
+void insert_at_end(struct linkedlist *ll, int sd) {
+  ListNode *new_node = (ListNode *)malloc(sizeof(ListNode));
+  printf("%d\n",sd);
+  new_node->sd = sd;
+  new_node->in_use = 0;
   if (ll->tail != NULL) {
     new_node->next = NULL;
     new_node->prev = ll->tail;
@@ -117,13 +124,13 @@ int delete_node(struct linkedlist *ll) {
   ll->size--;
   return ret;
 }
-void delete_specific_node(struct linkedlist *ll,int sd){
+void delete_specific_node(struct linkedlist *ll, int sd) {
   if (ll->head == NULL || ll->size == 0 || ll->tail == NULL) {
     return;
   }
-  struct list_node* to_delete = ll->head;
-  for(;to_delete != NULL; to_delete = to_delete->next){
-    if(to_delete->sd == sd){
+  struct list_node *to_delete = ll->head;
+  for (; to_delete != NULL; to_delete = to_delete->next) {
+    if (to_delete->sd == sd) {
       if (ll->size == 1) {
         ll->head = NULL;
         ll->tail = NULL;

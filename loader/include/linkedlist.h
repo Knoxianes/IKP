@@ -18,8 +18,8 @@ typedef struct linkedlist LinkedList;
 typedef struct list_node ListNode;
 
 struct linkedlist* create_list();
-void insert_at_beginning (struct linkedlist*, struct list_node*);
-void insert_at_end(struct linkedlist*, struct list_node*);
+void insert_at_beginning (struct linkedlist*, int);
+void insert_at_end(struct linkedlist*, int);
 struct list_node* get_node(struct linkedlist*, int);
 struct list_node* get_index(struct linkedlist*, int);
 struct list_node* find_first_free(struct linkedlist*);
