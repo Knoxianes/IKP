@@ -117,6 +117,40 @@ int delete_node(struct linkedlist *ll) {
   ll->size--;
   return ret;
 }
+void delete_specific_node(struct linkedlist *ll,int sd){
+  if (ll->head == NULL || ll->size == 0 || ll->tail == NULL) {
+    return;
+  }
+  struct list_node* to_delete = ll->head;
+  for(;to_delete != NULL; to_delete = to_delete->next){
+    if(to_delete->sd == sd){
+      if (ll->size == 1) {
+        ll->head = NULL;
+        ll->tail = NULL;
+        free(to_delete);
+      } else {
+        if (to_delete->prev == NULL) {
+          ll->head = to_delete->next;
+          ll->head->prev = NULL;
+          to_delete->next = NULL;
+          free(to_delete);
+        } else if (to_delete->next == NULL) {
+          ll->tail = to_delete->prev;
+          ll->tail->next = NULL;
+          to_delete->prev = NULL;
+          free(to_delete);
+        } else {
+          to_delete->next->prev = to_delete->prev;
+          to_delete->prev->next = to_delete->next;
+          to_delete->prev = to_delete->next = NULL;
+          free(to_delete);
+        }
+      }
+      ll->size--;
+      break;
+    }
+  }
+}
 void free_list(struct linkedlist *ll) {
   if (ll->head == NULL || ll->size == 0 || ll->tail == NULL) {
     free(ll);

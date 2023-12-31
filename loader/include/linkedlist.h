@@ -24,6 +24,7 @@ struct list_node* get_node(struct linkedlist*, int);
 struct list_node* get_index(struct linkedlist*, int);
 struct list_node* find_first_free(struct linkedlist*);
 int delete_node(struct linkedlist*);
+void delete_specific_node(struct linkedlist*, int);
 void free_list(struct linkedlist*);
 void print_list(struct linkedlist*);
 

@@ -1,7 +1,8 @@
-
 #include "../include/consts.h"
 #include "../include/linkedlist.h"
 #include "../include/queue.h"
+#include "../include/sockets.h"
+#include <asm-generic/errno.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -9,91 +10,68 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
+int end_program = 0;
 pthread_mutex_t payloads_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t list_of_workers_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-
-typedef struct args {
+typedef struct payloadargs {
   Queue *payloads;
   LinkedList *list_of_workers;
-} ARGS;
+} PAYLOADARGS;
 
+typedef struct process_creatinon_args {
+  LinkedList *list_of_workers;
+  struct pollfd *fds;
+  int *nfds;
+} CREATIONARGS;
+
+typedef struct processfinishedargs {
+  LinkedList *list_of_workers;
+  struct pollfd *fds;
+  int *nfds;
+  int process_socket_sd;
+} FINISHEDARGS;
 void *SendPayLoads(void *);
+void *ListenForProcessFinish(void *);
+void *ProcessCreation(void *);
+void Work();
 
 int main(int argc, char *argv[]) {
-  int i, len, rc, on = 1;
-  int listen_sd, client_socket_sd;
   char buffer[BUFFER_SIZE];
-  struct sockaddr_in6 addr;
+  int client_socket_sd, rc, process_socket_sd;
 
-  /*************************************************************/
-  /* Create an AF_INET6 stream socket to receive incoming      */
-  /* connections on                                            */
-  /*************************************************************/
-  listen_sd = socket(AF_INET6, SOCK_STREAM, 0);
-  if (listen_sd < 0) {
-    perror("socket() failed");
-    exit(-1);
-  }
-
-  /*************************************************************/
-  /* Allow socket descriptor to be reuseable                   */
-  /*************************************************************/
-  rc = setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on));
-  if (rc < 0) {
-    perror("setsockopt() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-  /*************************************************************/
-  /* Bind the socket                                           */
-  /*************************************************************/
-  memset(&addr, 0, sizeof(addr));
-  addr.sin6_family = AF_INET6;
-  memcpy(&addr.sin6_addr, &in6addr_any, sizeof(in6addr_any));
-  addr.sin6_port = htons(PORT);
-  rc = bind(listen_sd, (struct sockaddr *)&addr, sizeof(addr));
-  if (rc < 0) {
-    perror("bind() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-  /*************************************************************/
-  /* Set the listen back log                                   */
-  /*************************************************************/
-  rc = listen(listen_sd, 32);
-  if (rc < 0) {
-    perror("listen() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-
-  printf("Waiting for accept\n");
-  client_socket_sd = accept(listen_sd, NULL, NULL);
-  if (client_socket_sd < 0) {
-    if (errno != EWOULDBLOCK) {
-      perror("  accept() failed");
-    }
-  }
-  printf("Accepted\n");
-
+  client_socket_sd = create_client_socket(); // Waits for client to connect
+  process_socket_sd =
+      create_process_socket(); // Just creates and returns socket descriptor
+                               // after listen func
 
   Queue *payloads = create_queue();
   LinkedList *list_of_workers = create_list();
-  ARGS *args = (ARGS *)malloc(sizeof(ARGS));
-  args->payloads = payloads;
-  args->list_of_workers = list_of_workers;
-  pthread_t thread_id;
-  pthread_create(&thread_id, NULL, SendPayLoads, args);
+  int nfds = 1;
+  struct pollfd fds[200];
+  fds[0].fd = process_socket_sd;
+  fds[0].events = POLLIN;
+
+  PAYLOADARGS *payloadargs = (PAYLOADARGS *)malloc(sizeof(PAYLOADARGS));
+  payloadargs->payloads = payloads;
+  payloadargs->list_of_workers = list_of_workers;
+
+  FINISHEDARGS *finishedargs = (FINISHEDARGS *)malloc(sizeof(FINISHEDARGS));
+  finishedargs->list_of_workers = list_of_workers;
+  finishedargs->fds = fds;
+  finishedargs->nfds = &nfds;
+  finishedargs->process_socket_sd = process_socket_sd;
+
+  pthread_t thread_payloads, thread_process_create, thread_process_finished;
+  pthread_create(&thread_payloads, NULL, SendPayLoads, payloadargs);
+  pthread_create(&thread_process_finished, NULL, ListenForProcessFinish,
+                 finishedargs);
 
   int full = 0;
-  while (1) {
+  while (!end_program) {
     if (payloads->size == payloads->max_size) {
       if (full == 0) {
         strcpy(buffer, "Full");
@@ -111,47 +89,52 @@ int main(int argc, char *argv[]) {
     }
     rc = recv(client_socket_sd, buffer, sizeof(buffer), 0);
     if (rc <= 0) {
+      end_program = 1;
       break;
     }
     pthread_mutex_lock(&payloads_mutex);
     enqueue(payloads, buffer);
     pthread_mutex_unlock(&payloads_mutex);
     bzero(buffer, sizeof(buffer));
-    strncpy(buffer, "ok",2);
+    strncpy(buffer, "ok", 2);
     rc = send(client_socket_sd, buffer, sizeof(buffer), 0);
     bzero(buffer, sizeof(buffer));
   }
   free_queue(payloads);
   free_list(list_of_workers);
-  free(args);
+  free(payloadargs);
+  free(finishedargs);
+  close(client_socket_sd);
+  close(process_socket_sd);
   return 0;
 }
 
 void *SendPayLoads(void *args) {
-  ARGS *tmp = args;
+  PAYLOADARGS *tmp = args;
   Queue *payloads = tmp->payloads;
   LinkedList *list_of_workers = tmp->list_of_workers;
   char buffer[BUFFER_SIZE];
-  printf("Size of queue: %d, Size of Linkedlist: %d\n",payloads->max_size,list_of_workers->size);
-  while(1){
-    bzero(buffer,sizeof(buffer));
-    if(payloads->size == 0){
+  while (!end_program) {
+    bzero(buffer, sizeof(buffer));
+    if (payloads->size == 0) {
       continue;
     }
     pthread_mutex_lock(&list_of_workers_mutex);
-    ListNode *free_process = find_first_free(list_of_workers); 
+    ListNode *free_process = find_first_free(list_of_workers);
     pthread_mutex_unlock(&list_of_workers_mutex);
-    if (free_process == NULL){
+    if (free_process == NULL) {
       continue;
     }
 
     pthread_mutex_lock(&payloads_mutex);
-    strcpy(buffer,dequeue(payloads));
+    strcpy(buffer, dequeue(payloads));
     pthread_mutex_unlock(&payloads_mutex);
 
-    int rc = send(free_process->sd,buffer,sizeof(buffer),0);
-    if (rc < 0){
-      printf("Error while sending data to process"); // Ovde postoji bug ako se desi send failed gubimo payload iz queue
+    int rc = send(free_process->sd, buffer, sizeof(buffer), 0);
+    if (rc < 0) {
+      printf("Error while sending data to process"); // Ovde postoji bug ako se
+                                                     // desi send failed gubimo
+                                                     // payload iz queue
       continue;
     }
 
@@ -160,3 +143,112 @@ void *SendPayLoads(void *args) {
   }
   return NULL;
 }
+
+void *ListenForProcessFinish(void *args) {
+  FINISHEDARGS *tmp = args;
+  LinkedList *list_of_workers = tmp->list_of_workers;
+  struct pollfd *fds = tmp->fds;
+  int *nfds = tmp->nfds;
+  int rc, current_size, new_sd;
+  int process_socket_sd = tmp->process_socket_sd;
+  char buffer[BUFFER_SIZE];
+  int close_conn, compress_array = 0;
+  do{
+
+    rc = poll(fds, *nfds, -1);
+    if (rc < 0) {
+      printf("Error with poll()\n");
+      end_program = 1;
+      break;
+    }
+    current_size = *nfds;
+    for (int i = 0; i < current_size; i++) {
+      if (fds[i].revents == 0) {
+        continue;
+      }
+
+      if (fds[i].revents != POLLIN) {
+        printf("Error revents = %d\n", fds[i].revents);
+        end_program = 1;
+        break;
+      }
+
+      if (fds[i].fd == process_socket_sd) {
+        do {
+          new_sd = accept(process_socket_sd, NULL, NULL);
+          if (new_sd < 0) {
+            if (errno != EWOULDBLOCK) {
+              printf("Error with accepting new_sd\n");
+              end_program = 1;
+            }
+            break;
+          }
+
+          printf("New connection - %d\n", new_sd);
+          fds[*nfds].fd = new_sd;
+          fds[*nfds].events = POLLIN;
+          (*nfds)++;
+          ListNode *new_worker = (ListNode *)malloc(sizeof(ListNode));
+          new_worker->sd = new_sd;
+          new_worker->in_use = 0;
+          pthread_mutex_lock(&list_of_workers_mutex);
+          insert_at_end(list_of_workers, new_worker);
+          pthread_mutex_unlock(&list_of_workers_mutex);
+
+        } while (new_sd != -1);
+      } else {
+        printf("  Descriptor %d is readable\n", fds[i].fd);
+        close_conn = 0;
+        rc = recv(fds[i].fd, buffer, sizeof(buffer), 0);
+        if (rc < 0) {
+          if (errno != EWOULDBLOCK) {
+            printf("RECV() failed\n");
+            close_conn = 1;
+          }
+        } else if (rc == 0) {
+          close_conn = 1;
+        } else {
+            if(strncmp(buffer,"finished",8) != 0){
+            printf(" There is error with buffer of some process\n");
+            end_program = 1;
+            break;
+          }
+          pthread_mutex_lock(&list_of_workers_mutex);
+          ListNode* worker = get_node(list_of_workers,fds[i].fd);
+          pthread_mutex_unlock(&list_of_workers_mutex);
+          worker->in_use = 0;
+        }
+
+        if(close_conn){
+          close(fds[i].fd);
+          pthread_mutex_lock(&list_of_workers_mutex);
+          delete_specific_node(list_of_workers,fds[i].fd);
+          pthread_mutex_unlock(&list_of_workers_mutex);
+          fds[i].fd = -1;
+          compress_array =  1;
+        }
+      }
+    }
+    if(compress_array){
+      compress_array = 0;
+      for(int i = 0; i < *nfds; i++){
+        if(fds[i].fd == -1){
+          for(int j = i; j< *nfds; j++){
+            fds[j].fd = fds[j+1].fd;
+          }
+          i--;
+          (*nfds)--;
+        }
+      }
+    } 
+  }while(!end_program);
+
+  for(int i=0; i < *nfds;i++){
+    if(fds[i].fd>0){
+      close(fds[i].fd);
+    }
+  } 
+  return NULL;
+}
+void *ProcessCreation(void *args) { return NULL; }
+void Work();

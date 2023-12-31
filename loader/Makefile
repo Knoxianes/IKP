@@ -6,8 +6,10 @@ project:
 	@echo "Built queue.o"
 	@$(COMPILER) -c src/linkedlist/*.c  -o bin/linkedlist.o 
 	@echo "Built linkedlist.o"
+	@$(COMPILER) -c src/sockets/*.c  -o bin/sockets.o 
+	@echo "Built sockets.o"
 	$(COMPILER) -c src/main.c  -o bin/main.o
-	@$(COMPILER) bin/linkedlist.o bin/queue.o bin/main.o -o loader 
+	@$(COMPILER) bin/linkedlist.o bin/queue.o bin/sockets.o bin/main.o -o loader 
 	@echo "Finished building loader"
 
 testLinkedList:

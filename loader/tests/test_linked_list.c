@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
   printf("\n---Insert at end---");
   ListNode *listnode2 = (ListNode *)malloc(sizeof(ListNode));
   listnode2->sd = 2;
-  listnode2->in_use = 0;
+  listnode2->in_use = 1;
 
   insert_at_end(list, listnode2);
   print_list(list);
@@ -51,20 +51,21 @@ int main(int argc, char *argv[]) {
   print_list(list);
   printf("Size:%d, Deleted sd: %d\n", list->size, sd);
 
-  printf("\n--Delete first node that is not in use---");
+
+  printf("\n--Delete node 1 --");
+  delete_specific_node(list,1);
+  print_list(list);
+  printf("\nSize:%d, Deleted sd: %d\n", list->size, 1);
+
+  printf("\n--Delete 2---");
+  delete_specific_node(list,2);
+  print_list(list);
+  printf("\nSize:%d, Deleted sd: %d\n", list->size, 2);
+
+  printf("\n--Delete first node that is not in use---\n");
   sd = delete_node(list);
   print_list(list);
   printf("Size:%d, Deleted sd: %d\n", list->size, sd);
-
-  printf("\n--Delete first node that is not in use---");
-  sd = delete_node(list);
-  print_list(list);
-  printf("\nSize:%d, Deleted sd: %d\n", list->size, sd);
-
-  printf("\n--Delete first node that is not in use---");
-  sd = delete_node(list);
-  print_list(list);
-  printf("\nSize:%d, Deleted sd: %d\n", list->size, sd);
 
   free_list(list);
   return 0;
