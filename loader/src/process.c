@@ -1,6 +1,5 @@
 #include "../include/consts.h"
 #include "../include/sockets.h"
-#include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
 #include "unistd.h"
@@ -13,10 +12,9 @@ int main() {
   while (1) {
     rc = recv(conn, buffer, sizeof(buffer), 0);
     if (strncmp(buffer, "end", 3) == 0) {
-      printf("Process closing...\n");
       break;
     }
-    sleep(rand() % 100 + 1);
+    sleep(rand() % 10 + 1);
     bzero(buffer, sizeof(buffer));
     strcpy(buffer, "finished");
     rc = send(conn, buffer, sizeof(buffer), 0);

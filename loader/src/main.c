@@ -16,6 +16,7 @@ int end_program = 0;
 pthread_mutex_t payloads_mutex;
 pthread_mutex_t free_workers_mutex;
 pthread_mutex_t fd_mutex;
+pthread_mutex_t console_mutex;
 
 typedef struct args {
   queue *payloads;
@@ -150,9 +151,9 @@ void *load_balance(void *args) {
             }
             break;
           }
-
+          pthread_mutex_lock(&console_mutex);
           printf("New incoming connection - %d\n", new_sd);
-
+          pthread_mutex_unlock(&console_mutex);
           int *tmp = (int *)malloc(sizeof(int));
           *tmp = new_sd;
           pthread_mutex_lock(&free_workers_mutex);
@@ -167,14 +168,18 @@ void *load_balance(void *args) {
       } else {
         close_conn = 0;
 
+        pthread_mutex_lock(&fd_mutex);
         rc = recv(fds[i].fd, buffer, sizeof(buffer), 0);
+        pthread_mutex_unlock(&fd_mutex);
         if (rc < 0) {
           if (errno != EWOULDBLOCK) {
             printf(" recv() failed!\n");
             close_conn = 1;
           }
         } else if (rc == 0) {
-          printf(" Connection closed\n");
+          pthread_mutex_lock(&console_mutex);
+          printf(" Connection closed fd: %d\n", fds[i].fd);
+          pthread_mutex_unlock(&console_mutex);
           close_conn = 1;
         } else {
           if (strncmp(buffer, "finished", 8) != 0) {
@@ -233,13 +238,15 @@ void *send_payload(void *args) {
     pthread_mutex_lock(&free_workers_mutex);
     dequeue(free_workers, &fd);
     pthread_mutex_unlock(&free_workers_mutex);
+    pthread_mutex_lock(&console_mutex);
     printf("Got fd of free worker: %d\n", fd);
-
+    pthread_mutex_unlock(&console_mutex);
     pthread_mutex_lock(&payloads_mutex);
     dequeue(payloads, buffer);
     pthread_mutex_unlock(&payloads_mutex);
+    pthread_mutex_lock(&console_mutex);
     printf("Got from payloads: %s\n", buffer);
-
+    pthread_mutex_unlock(&console_mutex);
     pthread_mutex_lock(&fd_mutex);
     rc = send(fd, buffer, sizeof(buffer), 0);
     pthread_mutex_unlock(&fd_mutex);
@@ -276,23 +283,34 @@ void *process_create(void *args) {
       pthread_mutex_lock(&free_workers_mutex);
       dequeue(free_workers, &fd);
       pthread_mutex_unlock(&free_workers_mutex);
+      pthread_mutex_lock(&console_mutex);
       printf("Got fd of free worker to shutdown: %d\n", fd);
+      pthread_mutex_unlock(&console_mutex);
       strcpy(buffer, "end");
       pthread_mutex_lock(&fd_mutex);
       rc = send(fd, buffer, sizeof(buffer), 0);
       pthread_mutex_unlock(&fd_mutex);
       if (rc < 0) {
+        pthread_mutex_lock(&console_mutex);
         printf("Error in create process failed send to close process fd: %d\n",
                fd);
+        pthread_mutex_unlock(&console_mutex);
       }
       number_of_processes--;
+      pthread_mutex_lock(&console_mutex);
+      printf("Current number of processes: %d\n", number_of_processes);
+      pthread_mutex_unlock(&console_mutex);
 
     } else if (load >= 0.7) {
       number_of_processes++;
+      pthread_mutex_lock(&console_mutex);
+      printf("Current number of processes: %d\n", number_of_processes);
+      pthread_mutex_unlock(&console_mutex);
       if (fork() == 0) {
         execv("./process", NULL);
       }
     }
+    sleep(1);
   }
   return NULL;
 }

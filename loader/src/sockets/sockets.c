@@ -60,14 +60,12 @@ int create_client_socket(){
   }
 
 
-  printf("Waiting for accept\n");
   client_socket_sd = accept(listen_sd, NULL, NULL);
   if (client_socket_sd < 0) {
     if (errno != EWOULDBLOCK) {
       perror("  accept() failed");
     }
   }
-  printf("Accepted\n");
   return client_socket_sd;
 }
 int create_process_socket(){
@@ -149,9 +147,7 @@ int connect_process(){
   if (socketClient == -1) {
     printf("Socket creating failed...\n");
     exit(1);
-  } else {
-    printf("Socket for process created...\n");
-  }
+  } 
 
   // Adding serverAddress data for connetion
   serverAddress.sin6_family = AF_INET6;
@@ -163,8 +159,6 @@ int connect_process(){
     printf("Connection with server failed...\n");
     close(socketClient);
     exit(2);
-  } else {
-    printf("Process connected to the server...\n");
-  }
+  } 
   return socketClient;
 }
