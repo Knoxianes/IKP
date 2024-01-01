@@ -47,9 +47,6 @@ int main(int argc, char *argv[]) {
   }
 
   pthread_join(get_payload_thread, NULL);
-  pthread_join(load_balance_thread, NULL);
-  pthread_join(send_payload_thread, NULL);
-  pthread_join(process_create_thread, NULL);
 
   free(args);
   destroyQueue(&free_workers);
@@ -85,6 +82,7 @@ void *get_payload(void *args) {
       break;
     }
     if (strncmp(buffer, "exit", 4) == 0) {
+      rc = send(client_socket_sd,buffer, sizeof(buffer),0);
       end_program = 1;
       break;
     }
