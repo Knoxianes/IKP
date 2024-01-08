@@ -43,7 +43,10 @@ int main() {
     printf("Connected to the server...\n");
   }
   strcpy(buffer,"ok");
+  int counter;
+  
   while (1) {
+    counter++;
     if(strncmp(buffer,"ok",2) != 0){
       if(strncmp(buffer,"Full",4) != 0){
         printf("Server error");
@@ -58,10 +61,9 @@ int main() {
       bzero(buffer,sizeof(buffer));
     }
     bzero(buffer, sizeof(buffer));
-    printf("Enter the payload : ");
-    n = 0;
-    while ((buffer[n++] = getchar()) != '\n')
-      ;
+    char tmp[MAX];
+    sprintf(tmp,"Payload number %d",counter);
+    strcpy(buffer,tmp);
     write(socketClient, buffer, sizeof(buffer));
     bzero(buffer, sizeof(buffer));
     read(socketClient, buffer, sizeof(buffer));
@@ -70,6 +72,7 @@ int main() {
       printf("Client Exit...\n");
       break;
     }
+    sleep(rand()%3+1);
   }
   close(socketClient);
   
