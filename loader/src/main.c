@@ -150,7 +150,7 @@ void *load_balance(void *args) {
             break;
           }
           pthread_mutex_lock(&console_mutex);
-          printf("New incoming connection - %d\n", new_sd);
+          printf("\nNew incoming connection - %d\n", new_sd);
           pthread_mutex_unlock(&console_mutex);
           int *tmp = (int *)malloc(sizeof(int));
           *tmp = new_sd;
@@ -243,7 +243,7 @@ void *send_payload(void *args) {
     dequeue(payloads, buffer);
     pthread_mutex_unlock(&payloads_mutex);
     pthread_mutex_lock(&console_mutex);
-    printf("Got from payloads: %s\n", buffer);
+    printf("Got from payloads: %s\n\n", buffer);
     pthread_mutex_unlock(&console_mutex);
     pthread_mutex_lock(&fd_mutex);
     rc = send(fd, buffer, sizeof(buffer), 0);
@@ -282,7 +282,7 @@ void *process_create(void *args) {
       dequeue(free_workers, &fd);
       pthread_mutex_unlock(&free_workers_mutex);
       pthread_mutex_lock(&console_mutex);
-      printf("Got fd of free worker to shutdown: %d\n", fd);
+      printf("\nGot fd of free worker to shutdown: %d\n\n", fd);
       pthread_mutex_unlock(&console_mutex);
       strcpy(buffer, "end");
       pthread_mutex_lock(&fd_mutex);
@@ -296,13 +296,13 @@ void *process_create(void *args) {
       }
       number_of_processes--;
       pthread_mutex_lock(&console_mutex);
-      printf("Current number of processes: %d\n", number_of_processes);
+      printf("\nCurrent number of processes: %d\n\n", number_of_processes);
       pthread_mutex_unlock(&console_mutex);
 
     } else if (load >= 0.7) {
       number_of_processes++;
       pthread_mutex_lock(&console_mutex);
-      printf("Current number of processes: %d\n", number_of_processes);
+      printf("\nCurrent number of processes: %d\n\n", number_of_processes);
       pthread_mutex_unlock(&console_mutex);
       if (fork() == 0) {
         execv("./process", NULL);

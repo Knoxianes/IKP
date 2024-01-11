@@ -13,6 +13,7 @@
 
 #define MAX 80
 #define PORT 5059
+#define SLEEP 2
 
 int main() {
   int socketClient, conn;
@@ -67,12 +68,11 @@ int main() {
     write(socketClient, buffer, sizeof(buffer));
     bzero(buffer, sizeof(buffer));
     read(socketClient, buffer, sizeof(buffer));
-    printf("From Server : %s\n", buffer);
     if ((strncmp(buffer, "exit", 4)) == 0) {
       printf("Client Exit...\n");
       break;
     }
-    sleep(rand()%3+1);
+    sleep(rand()%SLEEP+1);
   }
   close(socketClient);
   
